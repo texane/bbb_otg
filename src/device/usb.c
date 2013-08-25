@@ -3,6 +3,12 @@
  * $(CROSS_COMPILE)cc -Wall -DAIO -g -o usb usb.c usbstring.c -lpthread -laio
  */
 
+/* before running:
+   modprobe gadgetfs
+   mkdir /dev/gadget
+   mount -t gadgetfs none /dev/gadget
+*/
+
 /*
  * this is an example pthreaded USER MODE driver implementing a
  * USB Gadget/Device with simple bulk source/sink functionality.
