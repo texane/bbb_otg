@@ -81,3 +81,38 @@ works only on port 2
 
 [ ref document ]
 http://circuitco.com/support/index.php?title=BeagleBoneBlack#LATEST_PRODUCTION_FILES_.28A5A.29
+
+
+[ kernel module ]
+rmmod g_multi libcomposite gadgetfs
+modprobe libcomposite
+modprobe gadgetfs
+mkdir /dev/gadget
+mount -t gadgetfs none /dev/gadget/
+
+check that /dev/gadget/musb-hdrc appears
+
+[ writing linux userspace device gadget ]
+refer to:
+../src/gadgetfs
+
+compile with:
+cc -DAIO -I. usb.c  usbstring.c -lpthread  -laio
+
+[ checking ]
+host $> lsub
+...
+Bus 003 Device 010: ID 0525:a4a4 Netchip Technology, Inc. Linux-USB user-mode bulk source/sink
+
+after removing the device:
+host $> lsub
+...
+
+[ ref ]
+http://tali.admingilde.org/linux-docbook/gadget/ch06.html
+http://www.linux-usb.org/gadget/usb.c
+https://www.kernel.org/doc/Documentation/usb
+
+[ linux ]
+https://www.kernel.org/doc/Documentation/usb/gadget_configfs.txt
+https://www.kernel.org/doc/Documentation/ABI/testing/configfs-usb-gadget
