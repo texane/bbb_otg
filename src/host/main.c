@@ -43,7 +43,7 @@
 
 /* endpoints */
 #define CONFIG_EP_REP 1
-#define CONFIG_EP_REQ 1
+#define CONFIG_EP_REQ 2
 
 
 /* dev handle */
@@ -168,6 +168,7 @@ static int send_recv_buf(dev_handle_t* handle, uint8_t* buf)
     return -1;
   }
 
+#if 0
   usberr = usb_bulk_read
   (
    handle->usb_handle,
@@ -182,6 +183,7 @@ static int send_recv_buf(dev_handle_t* handle, uint8_t* buf)
     DEBUG_ERROR("usb_bulk_read() == %d(%s)\n", usberr, usb_strerror());
     return -1;
   }
+#endif
 
   return 0;
 }
@@ -449,7 +451,7 @@ static int open_dev_usb_handle(usb_dev_handle** usb_handle, int enum_only)
 	}
 
 #if 0
-	if (usb_set_configuration(*usb_handle, 0))
+	if (usb_set_configuration(*usb_handle, 3))
 	{
 	  DEBUG_ERROR("libusb_set_configuration(): %s\n", usb_strerror());
 	  error = -1;

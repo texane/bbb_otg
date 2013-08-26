@@ -3,12 +3,6 @@
  * $(CROSS_COMPILE)cc -Wall -DAIO -g -o usb usb.c usbstring.c -lpthread -laio
  */
 
-/* before running:
-   modprobe gadgetfs
-   mkdir /dev/gadget
-   mount -t gadgetfs none /dev/gadget
-*/
-
 /*
  * this is an example pthreaded USER MODE driver implementing a
  * USB Gadget/Device with simple bulk source/sink functionality.
@@ -97,7 +91,7 @@ device_desc = {
 	.bNumConfigurations =	1,
 };
 
-#define	MAX_USB_POWER		1
+#define	MAX_USB_POWER		250
 
 #define	CONFIG_VALUE		3
 
@@ -371,8 +365,8 @@ static int autoconfig ()
 			= USB_DIR_IN | 1;
 		EP_IN_NAME = "ep1in";
 		fs_sink_desc.bEndpointAddress = hs_sink_desc.bEndpointAddress
-			= USB_DIR_OUT | 1;
-		EP_OUT_NAME = "ep1out";
+			= USB_DIR_OUT | 2;
+		EP_OUT_NAME = "ep2out";
 
 		source_sink_intf.bNumEndpoints = 3;
 		fs_status_desc.bEndpointAddress
@@ -746,6 +740,7 @@ ep_config (char *name, const char *label,
 		status = -errno;
 		fprintf (stderr, "%s open %s error %d (%s)\n",
 			label, name, errno, strerror (errno));
+		fflush(stderr);
 		return status;
 	}
 
@@ -761,6 +756,7 @@ ep_config (char *name, const char *label,
 		status = -errno;
 		fprintf (stderr, "%s config %s error %d (%s)\n",
 			label, name, errno, strerror (errno));
+		fflush(stderr);
 		close (fd);
 		return status;
 	} else if (verbose) {
@@ -768,6 +764,7 @@ ep_config (char *name, const char *label,
 
 		id = pthread_self ();
 		fprintf (stderr, "%s start %ld fd %d\n", label, id, fd);
+		fflush(stderr);
 	}
 	return fd;
 }
@@ -859,6 +856,8 @@ static void *simple_source_thread (void *param)
 	int		status;
 	char		buf [USB_BUFSIZE];
 
+	printf("---> source_thread\n"); fflush(stdout);
+
 	status = source_open (name);
 	if (status < 0)
 		return 0;
@@ -866,6 +865,7 @@ static void *simple_source_thread (void *param)
 
 	pthread_cleanup_push (close_fd, &source_fd);
 	do {
+#if 0
 		unsigned long	len;
 
 		/* original LinuxThreads cancelation didn't work right
@@ -878,7 +878,7 @@ static void *simple_source_thread (void *param)
 			status = write (source_fd, buf, len);
 		else
 			status = 0;
-
+#endif
 	} while (status > 0);
 	if (status == 0) {
 		if (verbose)
@@ -898,23 +898,37 @@ static void *simple_sink_thread (void *param)
 	int		status;
 	char		buf [USB_BUFSIZE];
 
+	printf("---> sink_thread\n"); fflush(stdout);
+
 	status = sink_open (name);
 	if (status < 0)
+	{
+		printf("---> error sink_open %s\n", name); fflush(stdout);
 		return 0;
+	}
 	sink_fd = status;
 
+	printf("---> success sink_open %s\n", name); fflush(stdout);
+
 	/* synchronous reads of endless streams of data */
-	pthread_cleanup_push (close_fd, &sink_fd);
+	/* pthread_cleanup_push (close_fd, &sink_fd); */
 	do {
 		/* original LinuxThreads cancelation didn't work right
 		 * so test for it explicitly.
 		 */
-		pthread_testcancel ();
+		/* pthread_testcancel (); */
 		errno = 0;
 
 		printf("----> reading\n");
 		status = read (sink_fd, buf, sizeof buf);
+		{
+		  size_t i;
+		  printf("status: %d\n", status);
+		  for (i = 0; i < (size_t)status; ++i) printf(" %02x", buf[i]);
+		  printf("\n");
+		}
 		printf("----< reading\n");
+		fflush(stdout);
 
 		if (status < 0)
 			break;
@@ -928,7 +942,7 @@ static void *simple_sink_thread (void *param)
 		perror ("read");
 	fflush (stdout);
 	fflush (stderr);
-	pthread_cleanup_pop (1);
+	/* pthread_cleanup_pop (1); */
 
 	return 0;
 }
@@ -1232,12 +1246,17 @@ static void start_io ()
 	 * why?  this clearly doesn't ...
 	 */
 
+	printf("---> pthread_create\n"); fflush(stdout);
+
+#if 0
 	if (pthread_create (&source, 0,
 			source_thread, (void *) EP_IN_NAME) != 0) {
 		perror ("can't create source thread");
 		goto cleanup;
 	}
+#endif
 
+#if 0
 	if (pthread_create (&sink, 0,
 			sink_thread, (void *) EP_OUT_NAME) != 0) {
 		perror ("can't create sink thread");
@@ -1245,6 +1264,11 @@ static void start_io ()
 		source = ep0;
 		goto cleanup;
 	}
+#else
+	printf("---> simple_sink(%s)\n", EP_OUT_NAME); fflush(stdout);
+	simple_sink_thread((void*)EP_OUT_NAME);
+	printf("<--- simple_sink(%s)\n", EP_OUT_NAME); fflush(stdout);
+#endif
 
 	/* give the other threads a chance to run before we report
 	 * success to the host.
