@@ -787,19 +787,8 @@ static unsigned long fill_in_buf(void *buf, unsigned long nbytes)
 			errno = ENODEV;
 	}
 #else
-	switch (pattern) {
 	unsigned	i;
-
-	default:
-		// FALLTHROUGH
-	case 0:		/* endless streams of zeros */
-		memset (buf, 0, nbytes);
-		break;
-	case 1:		/* mod63 repeating pattern */
-		for (i = 0; i < nbytes; i++)
-			((__u8 *)buf)[i] = (__u8) (i % 63);
-		break;
-	}
+	for (i = 0; i < nbytes; i++) ((__u8 *)buf)[i] = (__u8) (i % 63);
 #endif
 	return nbytes;
 }
@@ -859,27 +848,34 @@ static void *simple_source_thread (void *param)
 	printf("---> source_thread\n"); fflush(stdout);
 
 	status = source_open (name);
-	if (status < 0)
+	if (status < 0) {
+		printf("---> error source_open %s\n", name); fflush(stdout);
 		return 0;
+	}
 	source_fd = status;
 
-	pthread_cleanup_push (close_fd, &source_fd);
-	do {
-#if 0
+	printf("---> success source_open %s\n", name); fflush(stdout);
+
+	/* pthread_cleanup_push (close_fd, &source_fd); */
+	{
 		unsigned long	len;
 
 		/* original LinuxThreads cancelation didn't work right
 		 * so test for it explicitly.
 		 */
-		pthread_testcancel ();
+		/* pthread_testcancel (); */
 
-		len = fill_in_buf (buf, sizeof buf);
+		/* len = fill_in_buf (buf, sizeof buf); */
+		len = fill_in_buf (buf, 32);
 		if (len > 0)
+		{
+		  printf("----> writing\n"); fflush(stdout);
 			status = write (source_fd, buf, len);
+		  printf("<---- writing %d\n", status); fflush(stdout);
+		}
 		else
 			status = 0;
-#endif
-	} while (status > 0);
+	}
 	if (status == 0) {
 		if (verbose)
 			fprintf (stderr, "done %s\n", __FUNCTION__);
@@ -887,7 +883,7 @@ static void *simple_source_thread (void *param)
 		perror ("write");
 	fflush (stdout);
 	fflush (stderr);
-	pthread_cleanup_pop (1);
+	/* pthread_cleanup_pop (1); */
 
 	return 0;
 }
@@ -1254,6 +1250,10 @@ static void start_io ()
 		perror ("can't create source thread");
 		goto cleanup;
 	}
+#else
+	printf("---> simple_source(%s)\n", EP_IN_NAME); fflush(stdout);
+	simple_source_thread((void*)EP_IN_NAME);
+	printf("<--- simple_source(%s)\n", EP_IN_NAME); fflush(stdout);
 #endif
 
 #if 0
@@ -1264,7 +1264,7 @@ static void start_io ()
 		source = ep0;
 		goto cleanup;
 	}
-#else
+#elif 0
 	printf("---> simple_sink(%s)\n", EP_OUT_NAME); fflush(stdout);
 	simple_sink_thread((void*)EP_OUT_NAME);
 	printf("<--- simple_sink(%s)\n", EP_OUT_NAME); fflush(stdout);
@@ -1275,14 +1275,14 @@ static void start_io ()
 	 * FIXME better yet, use pthread_cond_timedwait() and
 	 * synchronize on ep config success.
 	 */
-	sched_yield ();
+	/* sched_yield (); */
 
-cleanup:
-	errno = pthread_sigmask (SIG_SETMASK, &oldsig, 0);
-	if (errno != 0) {
-		perror ("restore sigmask");
-		exit (-1);
-	}
+ /* cleanup: */
+	/* errno = pthread_sigmask (SIG_SETMASK, &oldsig, 0); */
+	/* if (errno != 0) { */
+	/* 	perror ("restore sigmask"); */
+	/* 	exit (-1); */
+	/* } */
 }
 
 static void stop_io ()
@@ -1450,6 +1450,7 @@ static void handle_control (int fd, struct usb_ctrlrequest *setup)
 		switch (value) {
 		case CONFIG_VALUE:
 			start_io ();
+			printf("<< start_io\n"); fflush(stdout); getchar();
 			break;
 		case 0:
 			stop_io ();
@@ -1461,9 +1462,11 @@ static void handle_control (int fd, struct usb_ctrlrequest *setup)
 		}
 
 		/* ... ack (a write would stall) */
+		printf(">> read_ack\n"); fflush(stdout); getchar();
 		status = read (fd, &status, 0);
 		if (status)
 			perror ("ack SET_CONFIGURATION");
+		printf("<< read_ack\n"); fflush(stdout); getchar();
 		return;
 	case USB_REQ_GET_INTERFACE:
 		if (setup->bRequestType != (USB_DIR_IN|USB_RECIP_INTERFACE)
@@ -1652,6 +1655,7 @@ static void *ep0_thread (void *param)
 			case GADGETFS_SETUP:
 				connected = 1;
 				handle_control (fd, &event [i].u.setup);
+				printf("<< handle_control\n"); fflush(stdout); getchar();
 				break;
 			case GADGETFS_DISCONNECT:
 				connected = 0;

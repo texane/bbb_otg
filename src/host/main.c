@@ -153,6 +153,7 @@ static int send_recv_buf(dev_handle_t* handle, uint8_t* buf)
 
   int usberr;
 
+#if 1
   usberr = usb_bulk_write
   (
    handle->usb_handle,
@@ -167,6 +168,7 @@ static int send_recv_buf(dev_handle_t* handle, uint8_t* buf)
     DEBUG_ERROR("usb_bulk_write() == %d(%s)\n", usberr, usb_strerror());
     return -1;
   }
+#endif
 
 #if 0
   usberr = usb_bulk_read
@@ -490,6 +492,7 @@ static int open_dev_usb_handle(usb_dev_handle** usb_handle, int enum_only)
 
 static void close_dev_usb_handle(libusb_dev_handle* usb_handle)
 {
+  libusb_release_interface(usb_handle, 0);
   libusb_close(usb_handle);
 }
 
